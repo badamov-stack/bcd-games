@@ -45,7 +45,7 @@ jobs:
 
   build:
     needs: check
-    if: github.repository == 'thebcd69/bcd-games' && github.event_name != 'pull_request'
+    if: github.repository == 'badamov-stack/bcd-games' && github.event_name != 'pull_request'
     runs-on: macos-15
     timeout-minutes: 15
     outputs:
