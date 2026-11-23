@@ -1623,7 +1623,10 @@ assert presets['resident-evil-2']['lines'][2:] == ['env.MADEIRA_EC_HOOK_TRACE = 
 _re2 = next(r for r in recs['rules'] if r['id'] == 'resident-evil-2')
 assert {'line': 'env.MADEIRA_WG_64BIT = 1', 'minBuild': 580} in _re2['config'] and {'line': 'env.MADEIRA_OPTIN_DLLS = mfasfsrcsnk,wmvdecod,wmadmod', 'minBuild': 580} in _re2['config'], _re2['config']
 # Resident Evil 7 biohazard: the same failure chain (log 5MXS1S, build 576), the same two lines; only these two games list them
-assert presets['resident-evil-7']['lines'][2:] == presets['resident-evil-2']['lines'][2:] and presets['resident-evil-7']['version'] == 1, presets['resident-evil-7']
+assert presets['resident-evil-7']['lines'][2:] == presets['resident-evil-2']['lines'][2:] + ['env.MADEIRA_DXMT_FRESH = 1'] and presets['resident-evil-7']['version'] == 2, presets['resident-evil-7']
+# Version 2 (build 713; build 712 log, iPad15,5): GPU recoveries after the first tessellated draws; the 64-bit DXMT set built from BCD's pin
+# (its internal shaders carry the GS/TS marshal fix, tools/patch-dxmt-gsts-marshal.py), from the build whose list policy knows the key.
+assert {'line': 'env.MADEIRA_DXMT_FRESH = 1', 'minBuild': 713} in next(r for r in recs['rules'] if r['id'] == 'resident-evil-7')['config']
 assert [r['id'] for r in recs['rules'] if any(n in json.dumps(r['config']) for n in ('mfasfsrcsnk', 'wmvdecod', 'wmadmod', 'MADEIRA_WG_64BIT'))] == ['resident-evil-2', 'resident-evil-7', 'fallout-4', 'skyrim-special-edition', 'resident-evil-3', 'fallout-4-other', 'skyrim-special-edition-other', 'cult-of-the-lamb', 'hollow-knight-silksong', 'hollow-knight']  # Cult of the Lamb: round 668 (K1 S1); Silksong, Hollow Knight: round 626 V (their video lines, minBuild 626); Fallout 4 v2 (round 624): wmadmod alone, its xWMA voices and music (0PT2YV vs WRSNC8); Skyrim SE: wmadmod alone, its xWMA voice lines (2026-10-24); Resident Evil 3: RE2's lines (round 620)
 # Build 580 list (2026-10-22, the tur580 log wave; docs/DURUM.md section 2): lists for games that fail today, each line from a log. Every
 # line that names a key a download may set only from build 580 (FEX_X87REDUCEDPRECISION, MADEIRA_TLS_CLEAR_OWN_PROCESS, MADEIRA_VDCFG_PATH:

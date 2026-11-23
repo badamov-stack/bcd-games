@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "version": 96,
+  "version": 97,
   "generated": "2026-11-23",
   "rules": [
     {
@@ -2450,7 +2450,7 @@
     {
       "id": "resident-evil-7",
       "title": "Resident Evil 7 biohazard",
-      "version": 1,
+      "version": 2,
       "match": {
         "steamAppIDs": [418370],
         "steamFolders": ["resident evil 7 biohazard"],
@@ -2461,7 +2461,8 @@
         "# Reset to Recommended, at the bottom of the game's settings, brings them back.",
         "env.MADEIRA_EC_HOOK_TRACE = 0",
         {"line": "env.MADEIRA_WG_64BIT = 1", "minBuild": 580},
-        {"line": "env.MADEIRA_OPTIN_DLLS = mfasfsrcsnk,wmvdecod,wmadmod", "minBuild": 580}
+        {"line": "env.MADEIRA_OPTIN_DLLS = mfasfsrcsnk,wmvdecod,wmadmod", "minBuild": 580},
+        {"line": "env.MADEIRA_DXMT_FRESH = 1", "minBuild": 713}
       ],
       "notes": [
         "Resident Evil 7 biohazard (Steam 418370), build 576, iPhone18,1 (11.7 GB, iOS 27.0.1; Send Log 5MXS1S, 2026-10-21): the same",
@@ -2469,7 +2470,15 @@
         "generic handler's \"stream_handler_BeginCreateObject Unimplemented flags 0x11\", and 13 s into the game an access violation",
         "reading address 0 at re7.exe+0x2a6cf01 (`mov rcx,[rsi+8]`, the same instruction): the game plays a video through a Media",
         "Foundation source reader, gets no source and does not check. The same two lines from build 580. The videos' codec is not seen",
-        "yet; the next log's [winedmo] and [wmv] lines say how far it got. Not tried on a device yet."
+        "yet; the next log's [winedmo] and [wmv] lines say how far it got. Not tried on a device yet.",
+        "Version 2 (build 713; build 712 log, iPad15,5, iPadOS 26.5.2, 2026-11-23): 60 FPS for three minutes, then one location sets off GPU",
+        "recoveries of about 10 s each (every command buffer \"kIOGPUCommandBufferCallbackErrorInnocentVictim\", the first with [gpu-perf]'s",
+        "first tessellated draws), and from there about 0.2 presents a second; the audio plays on (re7-gpu-reset-2026-10-28, build 622, iPhone",
+        "17 Pro, is the same). The committed 64-bit d3d11.dll carries DXMT's internal shaders of 2026-10-14 (dxmt 2dc8d16), whose tessellation",
+        "draw-argument marshal spins on its first task until the GPU times out when a batch holds two or more tessellated draws",
+        "(tools/patch-dxmt-gsts-marshal.py; tools/patch-d3d11-src-metallib.py). env.MADEIRA_DXMT_FRESH = 1 runs the 64-bit DXMT set built from",
+        "BCD's pin, whose internal shaders have the fix. A likely cause, not a proven one: the log names no culprit buffer. Not tried on a device",
+        "yet; if the recoveries stay, env.MADEIRA_DXMT_FAULT_INFO = 1 names the encoder at fault ([fault-enc])."
       ]
     },
     {
