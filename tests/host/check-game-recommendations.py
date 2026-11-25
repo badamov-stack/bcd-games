@@ -356,6 +356,7 @@ assert list(presets) == ['rdr2-steam', 'rdr2-other', 'gta5e-steam', 'gta5e-other
                          'team-fortress-2', 'garrys-mod', 'left-4-dead-2', 'half-life-2-deathmatch', 'call-of-duty-modern-warfare-3', 'skyrim-2011',
                          'splinter-cell-double-agent', 'teardown', 'dead-space-2', 'crysis', 'kingdom-come-deliverance', 'grim-dawn', 'little-nightmares-enhanced',
                          'neon-abyss',   # round 707 .. round 714 (pinned below: NEW707)
+                         'devil-may-cry-5',   # 2026-11-25, build 721 logs: GPU recoveries after tessellated draws (pinned below: NEW707)
                          'standard'], list(presets)
 # ROUND707B-BEGIN (generated from the list before and after round 707: lead-scratch gen707test.py)
 # Round 707 (owner 2026-11-22, "hepsi uygun"): the new rows, pinned and peeled off as the rounds before did.
@@ -409,6 +410,9 @@ NEW707 = {
     'grim-dawn': (1, ['env.MADEIRA_EC_HOOK_TRACE = 0', 'env.MADEIRA_X86_FAULT_DUMP = 1', 'env.MADEIRA_GUEST_LOG = all', 'env.MADEIRA_GUEST_LOG_LIMIT = 1500'], [(0, 1000000000), (630, 1000000000), (598, 1000000000), (598, 1000000000)], {'steamAppIDs': [219990], 'steamFolders': ['grim dawn'], 'programs': [{'name': 'grim dawn.exe'}]}, [], []),
     'little-nightmares-enhanced': (1, ['env.MADEIRA_EC_HOOK_TRACE = 0', 'd3d12-bc-decode = 1'], [(0, 1000000000), (632, 1000000000)], {'programs': [{'name': 'little_nightmares_enhanced.exe'}, {'name': 'atlas-win64-shipping.exe'}]}, ['vram-mb = 512', 'pool = 512', 'pool-split = 1', 'swap-images = 1', 'swap-mb = 8192', 'swap-mode = 2', 'env.MADEIRA_X64_IMAGE_NOCOPY = 1', 'env.MADEIRA_SWAP_MIN_KB = 64'], [(715, 1000000000), (715, 1000000000), (715, 1000000000), (715, 1000000000), (715, 1000000000), (715, 1000000000), (715, 1000000000), (715, 1000000000)]),
     'neon-abyss': (1, ['env.MADEIRA_EC_HOOK_TRACE = 0', 'env.MADEIRA_GUEST_LOG = all', 'env.MADEIRA_GUEST_LOG_LIMIT = 1500'], [(0, 1000000000), (598, 1000000000), (598, 1000000000)], {'programs': [{'name': 'neonabyss.exe'}]}, [], []),
+    # Devil May Cry 5 (2026-11-25, build 721, iPad15,5): Resident Evil 7's three lines -- its videos' Media Foundation source (asf-wmv-media-source)
+    # and the 64-bit DXMT set built from BCD's pin, whose tessellation/geometry draw-batch kernel ends (dxmt-hang-fresh-set; the list may set it from 717).
+    'devil-may-cry-5': (1, ['env.MADEIRA_EC_HOOK_TRACE = 0', 'env.MADEIRA_WG_64BIT = 1', 'env.MADEIRA_OPTIN_DLLS = mfasfsrcsnk,wmvdecod,wmadmod', 'env.MADEIRA_DXMT_FRESH = 1'], [(0, 1000000000), (580, 1000000000), (580, 1000000000), (717, 1000000000)], {'steamAppIDs': [601150], 'steamFolders': ['devil may cry 5'], 'programs': [{'name': 'devilmaycry5.exe'}]}, [], []),
 }
 for _id, (_ver, _lines, _builds, _match, _small, _sbuilds) in NEW707.items():
     _p = presets[_id]

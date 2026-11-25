@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "version": 98,
-  "generated": "2026-11-24",
+  "version": 99,
+  "generated": "2026-11-25",
   "rules": [
     {
       "id": "rdr2-steam",
@@ -12346,6 +12346,36 @@
         "Neon Abyss (Unity, DXMT; Send Logs 3VA435 and ZRTM40, build 712, iPad16,1; feedback 'the graphic is broken'; round 714, agent G2 S7): a clean",
         "40-minute run, but Unity prints that its post-processing passes have no vertex shader at the first scene. The lines put the game's own log, with",
         "Unity's graphics start-up block, into the next Send Log. Diagnostic."
+      ]
+    },
+    {
+      "id": "devil-may-cry-5",
+      "title": "Devil May Cry 5",
+      "version": 1,
+      "match": {
+        "steamAppIDs": [601150],
+        "steamFolders": ["devil may cry 5"],
+        "programs": [{"name": "devilmaycry5.exe"}]
+      },
+      "config": [
+        "# BCD's recommended settings for Devil May Cry 5.",
+        "# Reset to Recommended, at the bottom of the game's settings, brings them back.",
+        "env.MADEIRA_EC_HOOK_TRACE = 0",
+        {"line": "env.MADEIRA_WG_64BIT = 1", "minBuild": 580},
+        {"line": "env.MADEIRA_OPTIN_DLLS = mfasfsrcsnk,wmvdecod,wmadmod", "minBuild": 580},
+        {"line": "env.MADEIRA_DXMT_FRESH = 1", "minBuild": 717}
+      ],
+      "notes": [
+        "Devil May Cry 5 (Steam 601150, RE Engine, 64-bit Direct3D 11), build 721, iPad15,5 (iPadOS 26.5.2), two logs of 2026-11-25. The first start",
+        "stopped 130 s in after \"[dll-missing] ... mfasfsrcsnk.dll status=c0000135\" and the generic handler's \"stream_handler_BeginCreateObject",
+        "Unimplemented flags 0x11\" (the game plays its videos through a Media Foundation source reader, as Resident Evil 2 and 7 do); auto-tune's",
+        "asf-wmv-media-source lines played the next start's ASF/VC-1 video (\"[wmv] ... pictures=138 ... send_errors=0\"). That start then had four GPU",
+        "recoveries of about 10 s each (\"Device error at frame N\", every command buffer kIOGPUCommandBufferCallbackErrorInnocentVictim, no culprit",
+        "named), each after [gpu-perf] windows with tessellated draws (\"tess 1\"/\"tess 2\" a frame); frames stopped meanwhile (HUD fps=0). The 64-bit",
+        "DXMT that ships was built before DXMT's fix for tessellation and geometry draw batches (ts/gs_draw_arguments_marshal spun on their first task:",
+        "tools/patch-dxmt-gsts-marshal.py, tools/patch-d3d11-src-metallib.py); env.MADEIRA_DXMT_FRESH = 1 runs the 64-bit DXMT set built from BCD's",
+        "pin, which has it (auto-tune's dxmt-hang-fresh-set names DMC5 36MCH0; Resident Evil 7's list carries the same line). The same three lines as",
+        "Resident Evil 7. Not tried on a device yet."
       ]
     },
     {
