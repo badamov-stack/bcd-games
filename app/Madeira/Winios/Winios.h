@@ -45,6 +45,9 @@ void winios_post_touch_up(int x, int y);
 /* Key press bridge (VK codes: RETURN=0x0D SPACE=0x20 ESCAPE=0x1B).
  * down=1 press, down=0 release. */
 void winios_post_key(int vk, int down);
+/* The same post, naming the hardware key it came from (hid: the USB HID usage, 0x28 Enter or 0x58 keypad Enter; 0 = none).
+ * Only VK_RETURN uses it, for the [enter] trace (winios_enter_trace.h); the event posted is exactly winios_post_key's. */
+void winios_post_key_hid(int vk, int down, int hid);
 
 /* Text-only paste: one Unicode scalar, optionally represented by a US-layout
  * virtual key. Returns 0 when the queue is busy; retry without advancing.

@@ -38,6 +38,7 @@
 /* The window census struct is shared with Swift through this header;
  * including it here keeps both sides' definitions the same. */
 #include "Winios.h"
+#include "winios_enter_trace.h"   /* [enter] trace: VK_RETURN numbered from the queue to the driver */
 #include "VulkanLayerGeometry.h"   /* madeira-bcd (Windows Vulkan) */
 #include "WiniosCursor.h"
 #include "winios_windowed.h"
@@ -976,6 +977,7 @@ void winios_pWindowPosChanged(HWND hwnd, HWND insert_after, HWND owner_hint, UIN
 
 extern void winios_drv_post_mouse(int x, int y, unsigned int flags, unsigned int mouse_data, void *hwnd);
 extern void winios_drv_post_key(unsigned short vk, unsigned int flags);
+extern void winios_drv_post_key_traced(unsigned short vk, unsigned int flags, unsigned int enter_seq, unsigned int enter_hid);
 extern void winios_drv_post_text(unsigned int scalar, unsigned short vk, int shift);
 extern void winios_dump_window_tree(void);
 extern void ios_dump_all_thread_stacks(void);
@@ -1120,6 +1122,22 @@ static int winios_vk_types_text(int vk) {
 }
 
 void winios_post_key(int vk, int down) {
+    winios_post_key_hid(vk, down, 0);
+}
+
+/* [enter] trace (winios_enter_trace.h): every VK_RETURN gets the next number, which rides in the queue event's data (0 for
+ * every other key, as before) to the driver's line, and is logged here whether the queue took it. Every one, never capped:
+ * the 60-line cap below is what hid the Enter presses of NieR:Automata's NAME ENTRY. */
+static _Atomic unsigned int g_enter_seq;
+
+static unsigned int winios_enter_number(void) {
+    unsigned int old = atomic_load_explicit(&g_enter_seq, memory_order_relaxed), seq;
+    do seq = winios_enter_next(old);
+    while (!atomic_compare_exchange_weak_explicit(&g_enter_seq, &old, seq, memory_order_relaxed, memory_order_relaxed));
+    return seq;
+}
+
+void winios_post_key_hid(int vk, int down, int hid) {
     /* madeira-bcd (2026-10-18): the first 60 keys, then a count every 1000. A
      * line per key, flushed, was one write per key-down and key-up (and per
      * repeat with env.MADEIRA_KEY_REPEAT = 1) for the whole session. */
@@ -1132,7 +1150,24 @@ void winios_post_key(int vk, int down) {
     } else if (n % 1000 == 0) {
         fprintf(stderr, "[winios] post_key: %u keys posted (one line each for the first 60)\n", n); fflush(stderr);
     }
-    winios_q_push_ev(WINIOS_EV_KEY, vk, 0, down ? 0 : KEYEVENTF_KEYUP, 0);
+    if (vk != WINIOS_ENTER_VK) {
+        winios_q_push_ev(WINIOS_EV_KEY, vk, 0, down ? 0 : KEYEVENTF_KEYUP, 0);
+        return;
+    }
+    {
+        unsigned int seq = winios_enter_number(), head, tail, used;
+        /* The queue keeps the newest event out when it is full (winios_q_push_ev); its fill before the push says whether
+         * this one got in. Read for the log only: a race with the drain can only make it look fuller than it was. */
+        pthread_mutex_lock(&g_input_q.lock);
+        head = g_input_q.head; tail = g_input_q.tail;
+        pthread_mutex_unlock(&g_input_q.lock);
+        used = (head + WINIOS_RING_SIZE - tail) % WINIOS_RING_SIZE;
+        winios_q_push_ev(WINIOS_EV_KEY, vk, 0, down ? 0 : KEYEVENTF_KEYUP, winios_enter_pack(seq, (unsigned int)hid));
+        fprintf(stderr, "[enter] #%u queued %s hid=0x%02x kind=%s queue=%u/%u%s\n", seq, down ? "down" : "up",
+                (unsigned int)hid & 0xff, winios_enter_kind((unsigned int)hid & 0xff), used, WINIOS_RING_SIZE - 1,
+                used >= WINIOS_RING_SIZE - 1 ? " -> DROPPED (queue full)" : "");
+        fflush(stderr);
+    }
 }
 
 /* The input queue, drained on a Wine thread: mouse and key events in order, pasted text at its own pace (see the text branch). */
@@ -1198,7 +1233,7 @@ static BOOL winios_drain_input(void) {
             }
         }
         if (e.type == WINIOS_EV_KEY)
-            winios_drv_post_key((unsigned short)e.x, e.flags);
+            winios_drv_post_key_traced((unsigned short)e.x, e.flags, winios_enter_seq(e.data), winios_enter_hid(e.data));
         else
             winios_drv_post_mouse(e.x, e.y, e.flags, e.data, NULL);
         drained = TRUE;

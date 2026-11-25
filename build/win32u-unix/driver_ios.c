@@ -198,6 +198,43 @@ static UINT winios_key_extended_flag( UINT vk, UINT scan, int nav_e0 )
 }
 /* end winios_key_extended_flag */
 
+/* [enter] trace (diagnostic, log only; NieR:Automata's NAME ENTRY, build 712, 2026-11-25; app/Madeira/Winios/winios_enter_trace.h
+ * has the why). Winios.m numbers every VK_RETURN it queues; the drain hands the number and the key's HID usage to
+ * winios_drv_post_key_traced, which keeps them for this thread while winios_drv_post_key sends the key exactly as before, and
+ * that function then writes one line per VK_RETURN, every one: the scan code Wine got, send_hardware_message's status, and who
+ * would receive it (the foreground window, its thread, that thread's focus and active windows: the wineserver gives a key to
+ * the foreground thread's focus). #0 = a VK_RETURN posted around the numbering. Nothing is read or changed for any other key.
+ * tests/host/check-enter-trace.py compiles winios_enter_trace_line on its own. */
+#include "../../app/Madeira/Winios/winios_enter_trace.h"   /* the numbering, the key's kind, a PC keyboard's scan code */
+
+static __thread unsigned int winios_enter_trace_seq, winios_enter_trace_hid;
+
+static int winios_enter_trace_line( char *buf, size_t size, unsigned int seq, unsigned int hid, UINT flags, UINT scan,
+                                    unsigned int status, HWND fg, DWORD fg_tid, HWND focus, HWND active )
+{
+    return snprintf( buf, size, "[enter] #%u drv %s hid=0x%02x kind=%s vk=0xd scan=0x%x ext=%d (a PC keyboard's %s sends 0x%x) "
+                     "status=0x%x fg=%p fg-tid=%04x focus=%p active=%p%s\n",
+                     seq, (flags & KEYEVENTF_KEYUP) ? "up" : "down", hid & 0xff, winios_enter_kind( hid & 0xff ),
+                     scan, (flags & KEYEVENTF_EXTENDEDKEY) ? 1 : 0, hid == WINIOS_ENTER_HID_KEYPAD ? "keypad Enter" : "Enter",
+                     winios_enter_pc_scan( hid & 0xff ), status, fg, (unsigned int)fg_tid, focus, active,
+                     !fg ? " NO FOREGROUND WINDOW: the key reaches no thread" : (!focus ? " (the foreground thread has no focus window)" : "") );
+}
+/* end winios_enter_trace_line */
+
+static void winios_enter_trace_sent( UINT flags, UINT scan, NTSTATUS st )
+{
+    GUITHREADINFO info = { .cbSize = sizeof(info) };
+    HWND fg = NtUserGetForegroundWindow();
+    DWORD fg_pid = 0, fg_tid = fg ? get_window_thread( fg, &fg_pid ) : 0;
+    char line[512];
+
+    if (fg_tid && !NtUserGetGUIThreadInfo( fg_tid, &info )) memset( &info, 0, sizeof(info) );
+    winios_enter_trace_line( line, sizeof(line), winios_enter_trace_seq, winios_enter_trace_hid, flags, scan,
+                             (unsigned int)st, fg, fg_tid, info.hwndFocus, info.hwndActive );
+    dprintf( 2, "%s", line );
+}
+
+
 /* Keyboard sibling of winios_drv_post_key: packages an INPUT_KEYBOARD
  * event. vk is a Windows virtual-key code (VK_RETURN=0x0D, VK_SPACE=0x20,
  * VK_ESCAPE=0x1B, ...); flags is 0 for key-down, KEYEVENTF_KEYUP (0x2)
@@ -268,6 +305,16 @@ void winios_drv_post_key(unsigned short vk, unsigned int flags)
                        "-> status=0x%x (failures=%u)\n",
                     cnt, vk, scan, flags, (unsigned)st, bad);
     }
+    if (vk == VK_RETURN) winios_enter_trace_sent( flags, scan, st );   /* [enter] trace: every one, after the key was sent */
+}
+
+/* Winios.m's drain: the key with its [enter] number (0 for any other key); sent by winios_drv_post_key, unchanged. */
+void winios_drv_post_key_traced(unsigned short vk, unsigned int flags, unsigned int enter_seq, unsigned int enter_hid)
+{
+    winios_enter_trace_seq = enter_seq;
+    winios_enter_trace_hid = enter_hid;
+    winios_drv_post_key( vk, flags );
+    winios_enter_trace_seq = winios_enter_trace_hid = 0;
 }
 
 /* madeira-bcd (night round 2026-11-11, G5 S4b; Fear & Hunger 2 6Z8SV4, an NW.js game): after five clicks on Maximize the window got ONE new surface

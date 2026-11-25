@@ -972,6 +972,7 @@ extension MetalBackedView: UIKeyInput {
     func insertText(_ text: String) {
         // A hardware keyboard's presses reach Wine raw (HardwareInput); UIKit
         // also delivers them here as text, which would type every key twice.
+        HardwareInput.traceEnterText(view: "MetalBackedView", text: text, ignored: HardwareInput.shared.handlesTyping)   // [enter] trace
         if HardwareInput.shared.handlesTyping { return }
         HardwareInput.shared.cancelPaste()
         for ch in text {

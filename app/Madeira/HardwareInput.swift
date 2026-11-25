@@ -206,6 +206,50 @@ struct PasteQueue {
     mutating func cancel() { active = nil; pending.removeAll() }
 }
 
+/// [enter] trace (diagnostic, log only; NieR:Automata's NAME ENTRY on an iPad, build 712, 2026-11-25). A session where the
+/// player pressed Enter on a Bluetooth keyboard showed no VK_RETURN at any Wine layer, and the app's key log stops after 60
+/// posts, so it could not say where the key was lost. Every Enter and keypad Enter that reaches BCD is logged as it arrives
+/// from GCKeyboard (before the focus gate) and again with what became of it; Winios.m and driver_ios.c carry the same number
+/// (winios_enter_trace.h) up to Wine. Nothing here decides anything: the key takes its old path.
+enum EnterTrace {
+    static let vk: Int32 = 0x0D
+    static let hidMain = 0x28, hidKeypad = 0x58
+
+    static func isEnter(hid u: Int) -> Bool { u == hidMain || u == hidKeypad }
+
+    static func kind(hid u: Int) -> String {
+        switch u {
+        case hidMain: return "main"
+        case hidKeypad: return "keypad"
+        case 0: return "app"
+        default: return "other"
+        }
+    }
+
+    /// The scan code a PC keyboard sends for the key (the driver derives 0x1c for both, from VK_RETURN).
+    static func pcScan(hid u: Int) -> Int { u == hidKeypad ? 0xE01C : 0x1C }
+
+    /// What became of a press or release: whether the VK_RETURN the program sees changed state, and if not, why not.
+    static func verdict(pressed: Bool, focused: Bool, postedBefore: Bool, postedAfter: Bool) -> String {
+        if pressed {
+            if postedAfter && !postedBefore { return "posted down to Wine" }
+            if postedBefore { return "not posted: Enter was already down for the program" }
+            return focused ? "NOT posted: held back (blocked since focus was lost, or deferred)"
+                           : "NOT posted: keyboard focus is elsewhere"
+        }
+        if postedBefore && !postedAfter { return "posted up to Wine" }
+        if postedBefore { return "not posted: another Enter key is still held" }
+        return "nothing to release: its down was never posted"
+    }
+
+    /// A text bridge's newline (UIKit's own Return: the software keyboard, or a hardware key UIKit typed as text).
+    static func uikitLine(view: String, text: String, ignored: Bool) -> String? {
+        guard text.contains("\n") || text.contains("\r") else { return nil }
+        return "[enter] uikit-text \(view) newline -> "
+            + (ignored ? "ignored (a hardware keyboard is connected: its GCKeyboard path owns typing)" : "posted as VK_RETURN (hid=0x00 kind=app)")
+    }
+}
+
 enum HardwareKeyMap {
     /// Windows virtual-key code for a USB HID keyboard/keypad usage (page
     /// 0x07), or nil for a key Windows has no virtual key for. Ordered exactly
@@ -901,6 +945,19 @@ final class HardwareInput: ObservableObject {
 
     private var keys = FocusGate<Int32>()
     private var keysPosted = HeldEdges<Int32>()
+    /// [enter] trace: the HID usage of the last Enter key GCKeyboard delivered (0x28 Enter, 0x58 keypad Enter), named when
+    /// VK_RETURN is posted.
+    private var lastEnterHID = 0
+
+    /// [enter] trace: one line per event, every one (no cap), straight to the session log.
+    private func traceEnter(_ s: String) {
+        fputs("[enter] \(s)\n", stderr)
+    }
+
+    /// [enter] trace for the text bridges (MetalBackedView, LibraryKeyInput): a newline UIKit delivered as text.
+    static func traceEnterText(view: String, text: String, ignored: Bool) {
+        if let line = EnterTrace.uikitLine(view: view, text: text, ignored: ignored) { fputs(line + "\n", stderr) }
+    }
     // Defer Command until its partner is known: Command-V must not open the
     // guest Start menu. A Command tap or another chord still reaches Windows.
     private var deferredCommands: Set<Int32> = []
@@ -1443,6 +1500,23 @@ final class HardwareInput: ObservableObject {
 
     private func key(_ code: GCKeyCode, _ pressed: Bool) {
         tickKeys += 1
+        // [enter] trace: the key as GCKeyboard delivered it, before anything decides about it; its outcome when this returns.
+        let enterHID = EnterTrace.isEnter(hid: code.rawValue) ? code.rawValue : nil
+        let enterPostedBefore = keysPosted.down.contains(EnterTrace.vk)
+        if let hid = enterHID {
+            lastEnterHID = hid
+            traceEnter("hw \(pressed ? "down" : "up") hid=0x\(String(hid, radix: 16)) kind=\(EnterTrace.kind(hid: hid)) "
+                + "pc-scan=0x\(String(EnterTrace.pcScan(hid: hid), radix: 16)) arrived from GCKeyboard: focus-before=\(keyboardFocused ? "program" : "elsewhere") "
+                + "responder=\(FirstResponder.current.map { String(describing: type(of: $0)) } ?? "none")")
+        }
+        defer {
+            if let hid = enterHID {
+                traceEnter("hw \(pressed ? "down" : "up") hid=0x\(String(hid, radix: 16)) -> "
+                    + EnterTrace.verdict(pressed: pressed, focused: keyboardFocused,
+                                         postedBefore: enterPostedBefore, postedAfter: keysPosted.down.contains(EnterTrace.vk))
+                    + " (focus=\(keyboardFocused ? "program" : "elsewhere") base=\(baseFocused) typing-elsewhere=\(typingElsewhere()))")
+            }
+        }
         guard let vk = HardwareKeyMap.vk(forHIDUsage: code.rawValue) else {
             // An unmapped key is a key the program did not receive; the usage
             // number names it exactly.
@@ -1496,8 +1570,9 @@ final class HardwareInput: ObservableObject {
 
     private func syncKeys() {
         let edges = keysPosted.update(keys.wanted(focused: keyboardFocused).subtracting(deferredCommands))
-        for vk in edges.up { winios_post_key(vk, 0) }
-        for vk in edges.down { winios_post_key(vk, 1) }
+        // [enter] trace: VK_RETURN names the hardware key it came from (the same post; winios_post_key_hid).
+        for vk in edges.up { if vk == EnterTrace.vk { winios_post_key_hid(vk, 0, Int32(lastEnterHID)) } else { winios_post_key(vk, 0) } }
+        for vk in edges.down { if vk == EnterTrace.vk { winios_post_key_hid(vk, 1, Int32(lastEnterHID)) } else { winios_post_key(vk, 1) } }
         minuteKeys += edges.down.count
     }
 

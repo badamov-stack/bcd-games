@@ -2845,6 +2845,7 @@ final class LibraryKeyInput: UIView, UIKeyInput {
     func press(_ vk: Int32) { winios_post_key(vk, 1); winios_post_key(vk, 0) }
     func insertText(_ text: String) {
         HardwareInput.shared.cancelPaste()   // typing by hand ends a paste still being delivered
+        HardwareInput.traceEnterText(view: "LibraryKeyInput", text: text, ignored: false)   // [enter] trace
         for ch in text {
             guard let (vk, shift) = MetalBackedView.vkForChar(ch) else { continue }
             let temporary = shift && !held.contains(0x10)

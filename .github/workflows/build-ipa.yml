@@ -4265,6 +4265,7 @@ jobs:
         run: |
           python3 tests/host/check-hardware-input.py
           python3 tests/host/check-nav-keys.py
+          python3 tests/host/check-enter-trace.py --require-swift
 
       # madeira-bcd: Red Dead Redemption 2 kept 1.5 GB of argument-ring chunks (build 470);
       # ring-share = 1 returns them per batch. Also the ExecuteIndirect fast-path tallies.

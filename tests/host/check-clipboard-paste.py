@@ -92,6 +92,9 @@ static int send_hardware_message(void *window, int flags, const INPUT *input, in
 }
 '''+text_driver+queue+r'''
 static void winios_drv_post_key(unsigned short vk, unsigned int flags) { winios_text_key(vk, flags); }
+/* 2026-11-25: the drain hands a key's [enter] number along (winios_enter_trace.h); the key is sent as before */
+#include "winios_enter_trace.h"
+static void winios_drv_post_key_traced(unsigned short vk, unsigned int flags, unsigned int seq, unsigned int hid) { winios_drv_post_key(vk, flags); }
 static void winios_drv_post_mouse(int x, int y, unsigned int flags, unsigned int data, void *hwnd) {}
 '''+drain_input+r'''
 static void drain(void) {
