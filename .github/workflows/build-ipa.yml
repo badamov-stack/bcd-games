@@ -20,8 +20,8 @@ concurrency:
 
 jobs:
   build:
-    # madeira-bcd: runs only in the owner's repository; a fork's run is skipped.
-    if: github.repository == 'thebcd69/madeira-bcd'
+    # madeira-bcd: runs only in badamov-stack/bcd-games (this fork); other repositories skip it.
+    if: github.repository == 'badamov-stack/bcd-games'
     runs-on: macos-15
     # contents: write only so the token can see DRAFT releases, which is where
     # the Metal Shader Converter installer is kept (drafts are not public).
@@ -6283,12 +6283,27 @@ jobs:
       - name: Package Madeira and Madeira2 unsigned IPAs
         run: python3 tools/ota-variants.py package build-out/Madeira.xcarchive/Products/Applications/Madeira.app build-out ${{ steps.bn.outputs.n }}
 
+      # badamov-stack/bcd-games (fork): the unsigned IPAs as this run's artifact, for the fork's owner to download and
+      # sign themselves. No bucket, certificate or mail secret is used. Note: an artifact of a public repository's run is
+      # downloadable by anyone signed in to GitHub; kept 7 days.
+      - name: Upload unsigned IPAs (fork artifact)
+        if: github.repository == 'badamov-stack/bcd-games'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bcd-ipa-0.1.${{ steps.bn.outputs.n }}-unsigned
+          path: build-out/*-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
       # Over-the-air install: sign with the owner's certificate (kept in the
       # owner's PRIVATE bucket, never in the repository) and put both signed IPAs
       # plus installation pages (7-day pre-signed links) in the same bucket.
       # A signing/upload failure is caught by the private-bucket gate below.
       - name: Sign for OTA install (private bucket)
         id: ota
+        # badamov-stack/bcd-games (fork): skipped, the owner's bucket and certificate are not this fork's (artifact above).
+        if: github.repository != 'badamov-stack/bcd-games'
         continue-on-error: true
         env:
           B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
@@ -6311,7 +6326,7 @@ jobs:
       # private R2 bucket (the OTA step above). If that step did not succeed,
       # the build fails here instead of keeping the IPA somewhere public.
       - name: Check the IPA reached the private bucket
-        if: steps.ota.outcome != 'success'
+        if: github.repository != 'badamov-stack/bcd-games' && steps.ota.outcome != 'success'
         run: |
           echo "::error::OTA signing/upload did not succeed: this build's IPA was not kept anywhere (no GitHub artifact by design)"
           exit 1
